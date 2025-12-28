@@ -8,7 +8,6 @@ const UserProfileModal = ({ isOpen, onClose, user }) => {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop Blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -17,7 +16,6 @@ const UserProfileModal = ({ isOpen, onClose, user }) => {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
           />
 
-          {/* Modal Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -25,7 +23,6 @@ const UserProfileModal = ({ isOpen, onClose, user }) => {
             className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm z-[70] px-4"
           >
             <div className="bg-[#111827] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
-              {/* Header Image/Pattern */}
               <div className="h-24 bg-gradient-to-r from-blue-600 to-indigo-600 relative">
                 <button 
                   onClick={onClose}
@@ -35,7 +32,6 @@ const UserProfileModal = ({ isOpen, onClose, user }) => {
                 </button>
               </div>
 
-              {/* Profile Info */}
               <div className="px-6 pb-8 -mt-12 flex flex-col items-center text-center">
                 <div className="relative group">
                   <img
@@ -52,7 +48,6 @@ const UserProfileModal = ({ isOpen, onClose, user }) => {
                   "Always up for a quick chat about tech and design. 🚀"
                 </p>
 
-                {/* Quick Actions */}
                 <div className="flex gap-3 mt-6">
                   <button className="p-4 bg-white/5 hover:bg-blue-600 hover:text-white rounded-2xl text-gray-300 transition-all active:scale-90">
                     <Phone size={20} />
@@ -65,7 +60,6 @@ const UserProfileModal = ({ isOpen, onClose, user }) => {
                   </button>
                 </div>
 
-                {/* Info List */}
                 <div className="w-full mt-8 space-y-1 text-left">
                   <InfoRow icon={<MapPin size={16}/>} label="Location" value="New Delhi, India" />
                   <InfoRow icon={<Bell size={16}/>} label="Notifications" value="Muted" />

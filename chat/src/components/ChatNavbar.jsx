@@ -22,7 +22,6 @@ const ChatNavbar = ({ chat }) => {
         </div>
       </div>
 
-      {/* Modern Actions */}
       <div className="flex items-center space-x-2">
         <button className="p-2.5 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition-all">
           <Search className="w-5 h-5" />

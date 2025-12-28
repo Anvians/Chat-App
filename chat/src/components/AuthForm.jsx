@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Lock, User, ArrowRight, Phone, ChevronDown, ShieldCheck, KeyRound, ArrowLeft } from "lucide-react";
 
 const AuthForm = () => {
-  const [mode, setMode] = useState("login"); // 'login', 'signup', or 'forgot'
+  const [mode, setMode] = useState("login"); 
   const [phone, setPhone] = useState("");
 
   const isLogin = mode === "login";
@@ -17,7 +17,6 @@ const AuthForm = () => {
         
         <div className="relative bg-gray-900/90 backdrop-blur-3xl border border-white/10 p-10 rounded-[2.5rem] shadow-2xl overflow-hidden">
           
-          {/* Header Section */}
           <div className="text-center mb-8">
             <AnimatePresence mode="wait">
               <motion.div
@@ -40,14 +39,12 @@ const AuthForm = () => {
 
           <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
             <AnimatePresence mode="popLayout">
-              {/* Field: Full Name (Signup Only) */}
               {isSignup && (
                 <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
                   <InputGroup icon={<User />} type="text" placeholder="Full Name" />
                 </motion.div>
               )}
 
-              {/* Field: Phone (All Modes) */}
               <div className="relative group">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-gray-400 border-r border-white/10 pr-3 group-focus-within:text-blue-400 transition-colors">
                   <span className="text-sm font-bold">+91</span>
@@ -60,7 +57,6 @@ const AuthForm = () => {
                 />
               </div>
 
-              {/* Field: Password (Login & Signup Only) */}
               {!isForgot && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
                   <InputGroup icon={<Lock />} type="password" placeholder="Password" />
@@ -68,7 +64,6 @@ const AuthForm = () => {
               )}
             </AnimatePresence>
 
-            {/* Action Button */}
             <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] flex items-center justify-center gap-2 group">
               {isLogin && "SIGN IN"}
               {isSignup && "CREATE ACCOUNT"}
@@ -77,7 +72,6 @@ const AuthForm = () => {
             </button>
           </form>
 
-          {/* Bottom Navigation Links */}
           <div className="mt-8 space-y-4 text-center">
             {isLogin && (
               <button onClick={() => setMode("forgot")} className="text-xs text-gray-500 hover:text-blue-400 font-bold tracking-wide transition-colors uppercase">
@@ -112,7 +106,6 @@ const AuthForm = () => {
   );
 };
 
-// Reusable Helper Components
 const InputGroup = ({ icon, ...props }) => (
   <div className="relative group">
     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-400 transition-colors">

@@ -17,8 +17,6 @@ const ChatScreen = ({ selectedChat }) => {
   // Handle incoming messages
   useEffect(() => {
     const handleReceiveMessage = (data) => {
-      // Ensure we only add messages meant for this specific conversation logic 
-      // (You might need to add a roomId check here later)
       setMessages((prev) => [...prev, { 
         sender: 'Other', 
         text: data.message || data,
@@ -28,11 +26,10 @@ const ChatScreen = ({ selectedChat }) => {
 
     socket.on('recv_msg', handleReceiveMessage);
 
-    // Cleanup listener on unmount or when chat changes
     return () => {
       socket.off('recv_msg', handleReceiveMessage);
     };
-  }, [selectedChat]); // Reset listener if the selected user changes
+  }, [selectedChat]); 
 
   const Send_msg = () => {
     if (message.trim() === '') return;
@@ -94,7 +91,6 @@ const ChatScreen = ({ selectedChat }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Modern Floating Input Bar */}
       <div className="px-6 pb-6 pt-2 bg-transparent z-20">
         <div className="max-w-5xl mx-auto flex items-end gap-3 bg-gray-900/40 backdrop-blur-2xl border border-white/10 p-2 rounded-[28px] shadow-2xl focus-within:border-blue-500/30 transition-all">
           

@@ -6,10 +6,10 @@ import ChatScreen from "./components/ChatScreen";
 import AuthForm from "./components/AuthForm"; 
 import Room from "./components/Rooms";
 import Navbar from "./components/Navbar";
-import { MessageSquareDashed } from "lucide-react"; // Import a nice icon for empty state
+import { MessageSquareDashed } from "lucide-react"; 
 
 const App = () => {
-  const [activeChat, setActiveChat] = useState(null); // The source of truth for current conversation
+  const [activeChat, setActiveChat] = useState(null); 
   const location = useLocation();
   
   const isAuthPage = location.pathname === "/auth";
@@ -21,7 +21,6 @@ const App = () => {
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#020617] text-white selection:bg-blue-500/30">
       
-      {/* Background Decorative Orbs */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px]" />
@@ -36,7 +35,6 @@ const App = () => {
       <div className="flex flex-1 overflow-hidden relative z-10">
         {showSider && (
           <aside className="h-full z-40 border-r border-white/5 bg-[#020617]/40 backdrop-blur-sm">
-            {/* Pass state setter to Sider so clicking a user updates activeChat */}
             <Sider onSelectUser={setActiveChat} activeUserId={activeChat?.id} />
           </aside>
         )}
@@ -44,7 +42,7 @@ const App = () => {
         <main className="flex-1 relative overflow-hidden bg-transparent">
           <AnimatePresence mode="wait">
             <motion.div
-              key={location.pathname + (activeChat?.id || "")} // Key includes ID so it re-animates when switching users
+              key={location.pathname + (activeChat?.id || "")} 
               initial={{ opacity: 0, scale: 0.99 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.01 }}
