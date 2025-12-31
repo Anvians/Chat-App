@@ -3,7 +3,6 @@ import { Phone, Video, MoreVertical, Search } from "lucide-react";
 const ChatNavbar = ({ chat }) => {
   return (
     <div className="w-full h-20 bg-gray-900/60 backdrop-blur-md flex items-center px-6 border-b border-gray-800 z-30">
-      {/* Profile Info */}
       <div className="flex items-center flex-1">
         <div className="relative">
           <img

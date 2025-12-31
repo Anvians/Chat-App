@@ -1,5 +1,7 @@
-import io from 'socket.io-client'
+import { io } from 'socket.io-client';
 
-const socket = io.connect('http://localhost:3003')
-
-export default socket
+const token = localStorage.getItem('token'); 
+const socket = io('http://localhost:3003', {
+  auth: { token }
+});
+export default socket;
