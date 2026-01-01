@@ -4,7 +4,7 @@ import { Lock, User, ArrowRight, ChevronDown, ArrowLeft, ShieldCheck } from "luc
 import axios from "axios";
 import { useNavigate } from "react-router-dom"; 
 
-const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+const server_url = 'https://chat-app-l5l5.vercel.app' || 'http://localhost:3003';
 
 
 const AuthForm = () => {
