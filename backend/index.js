@@ -1,134 +1,176 @@
-import express from 'express';
-import http from 'http';
-import { Server } from 'socket.io';
-import cors from 'cors';
-import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
-console.log("SERVER SECRET CHECK:", process.env.JWT_SECRET);
-
-import authRouter from './src/routes/auth.route.js';
-import userRouter from './src/routes/user.route.js';
-import roomRouter from './src/routes/room.route.js';
-import chatRouter from './src/routes/chat.route.js';
-import connectDB from './src/connections/mongo_connection.js';
-import Message from './src/models/message.model.js';
-import RoomMessage from './src/models/room_chat.model.js';
-import Chat from './src/models/chats.model.js';
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import cors from "cors";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 
 dotenv.config();
 
-const app = express();
-import { JWT_SECRET } from './src/config/env.js';
-const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+import authRouter from "./src/routes/auth.route.js";
+import userRouter from "./src/routes/user.route.js";
+import roomRouter from "./src/routes/room.route.js";
+import chatRouter from "./src/routes/chat.route.js";
+import connectDB from "./src/connections/mongo_connection.js";
 
-app.use(cors({
-  origin: 'https://chat-app-coral-psi.vercel.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-}));
+import Message from "./src/models/message.model.js";
+import RoomMessage from "./src/models/room_chat.model.js";
+import Chat from "./src/models/chats.model.js";
+
+import { JWT_SECRET } from "./src/config/env.js";
+
+
+const app = express();
+const server = http.createServer(app);
+
+const PORT = process.env.PORT || 3003;
+const NODE_ENV = process.env.NODE_ENV || "development";
+
+const FRONTEND_URL =
+  NODE_ENV === "production"
+    ? "https://chat-app-coral-psi.vercel.app"
+    : "http://localhost:5173"; // change if needed
+
+
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true,
+  })
+);
+
 app.use(express.json());
+
 
 connectDB();
 
-const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
-    origin: 'https://chat-app-coral-psi.vercel.app/',
-    methods: ['GET', 'POST'],
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
+// Socket Auth
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
-  if (!token) return next(new Error('Authentication error: Token missing'));
+
+  if (!token) {
+    return next(new Error("Authentication error: Token missing"));
+  }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     socket.user = { id: decoded.id };
     next();
   } catch (err) {
-    return next(new Error('Authentication error: Invalid token'));
+    return next(new Error("Authentication error: Invalid token"));
   }
 });
 
-const onlineUsers = new Map();
-io.on('connection', (socket) => {
+
+const onlineUsers = new Map(); // userId => Set(socketId)
+
+io.on("connection", (socket) => {
   const userId = socket.user.id;
-  onlineUsers.set(userId, socket.id);
+
+  if (!onlineUsers.has(userId)) {
+    onlineUsers.set(userId, new Set());
+  }
+  onlineUsers.get(userId).add(socket.id);
+
   console.log(`User connected: ${userId}`);
 
-  socket.on('typing', (room) => {
-    socket.to(room).emit('typing', { userId: socket.user.id });
-  });
-
-  socket.on('stop_typing', (room) => {
-    socket.to(room).emit('stop_typing', { userId: socket.user.id });
-  });
-
-  socket.on('join_room', (data) => {
-    const roomId = data.room || data;
+  // JOIN ROOM
+  socket.on("join_room", (roomId) => {
     socket.join(roomId);
-    console.log(`User ${userId} joined room: ${roomId}`);
+    console.log(` User ${userId} joined room ${roomId}`);
   });
 
-  socket.on('send_message', async (data) => {
+  // TYPING
+  socket.on("typing", (roomId) => {
+    socket.to(roomId).emit("typing", { userId });
+  });
+
+  socket.on("stop_typing", (roomId) => {
+    socket.to(roomId).emit("stop_typing", { userId });
+  });
+
+  socket.on("send_message", async (data) => {
     const { message, to, isGroup = false, messageType = "text" } = data;
-    const userId = socket.user.id;
 
     try {
       let newMessage;
+
       if (isGroup) {
         newMessage = await RoomMessage.create({
           room: to,
           sender: userId,
           content: message,
-          messageType: messageType || "text"
+          messageType,
         });
       } else {
         newMessage = await Message.create({
           sender: userId,
           chat: to,
           content: message,
-          messageType: messageType || "text"
+          messageType,
         });
 
-        await Chat.findByIdAndUpdate(to, { lastMessage: newMessage._id });
-      }
-
-      const populatedMsg = await newMessage.populate("sender", "name dp");
-
-
-      io.to(to).emit('recv_msg', populatedMsg);
-
-      // Notify all users in the chat (for one-on-one chats)
-      const chatDoc = await Chat.findById(to);
-      if (chatDoc) {
-        chatDoc.users.forEach(uId => {
-          const userSocket = onlineUsers.get(uId.toString());
-          if (userSocket) {
-            io.to(userSocket).emit('new_chat_added', populatedMsg);
-          }
+        await Chat.findByIdAndUpdate(to, {
+          lastMessage: newMessage._id,
         });
       }
 
+      const populatedMsg = await newMessage.populate(
+        "sender",
+        "name dp"
+      );
+
+      io.to(to).emit("recv_msg", populatedMsg);
+
+      if (!isGroup) {
+        const chatDoc = await Chat.findById(to);
+        if (chatDoc) {
+          chatDoc.users.forEach((uId) => {
+            const sockets = onlineUsers.get(uId.toString());
+            if (sockets) {
+              sockets.forEach((sid) => {
+                io.to(sid).emit("new_message", populatedMsg);
+              });
+            }
+          });
+        }
+      }
     } catch (err) {
-      console.error("Socket Message Error:", err);
+      console.error(" Socket Message Error:", err);
       socket.emit("error", { message: "Failed to send message" });
     }
   });
 
-  socket.on('disconnect', () => {
-    onlineUsers.delete(userId);
-    console.log(`User disconnected: ${userId}`);
+
+  socket.on("disconnect", () => {
+    const userSockets = onlineUsers.get(userId);
+    if (userSockets) {
+      userSockets.delete(socket.id);
+      if (userSockets.size === 0) {
+        onlineUsers.delete(userId);
+      }
+    }
+    console.log(` User disconnected: ${userId}`);
   });
 });
 
-app.use('/api/auth', authRouter);
-app.use('/api/user', userRouter);
-app.use('/api/rooms', roomRouter);
-app.use('/api/chat', chatRouter); 
 
-const PORT = process.env.PORT || 3003;
+app.use("/api/auth", authRouter);
+app.use("/api/user", userRouter);
+app.use("/api/rooms", roomRouter);
+app.use("/api/chat", chatRouter);
+
+
 server.listen(PORT, () => {
-  console.log(` Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌍 Frontend allowed: ${FRONTEND_URL}`);
 });
