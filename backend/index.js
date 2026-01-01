@@ -22,7 +22,7 @@ import { JWT_SECRET } from './src/config/env.js';
 const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
 
 app.use(cors({
-  origin: `${server_url}`,
+  origin: 'https://chat-app-coral-psi.vercel.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
