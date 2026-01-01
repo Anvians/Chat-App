@@ -28,7 +28,7 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 
 const FRONTEND_URL =
   NODE_ENV === "production"
-    ? "https://chat-app-coral-psi.vercel.app"
+    ? "https://chat-app-l5l5.vercel.app"
     : "http://localhost:5173"; // change if needed
 
 
