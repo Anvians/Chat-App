@@ -5,13 +5,33 @@ import ChatNavbar from "./ChatNavbar";
 import { Send, Paperclip, Smile } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-
-const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+const server_url = import.meta.env.VITE_BACKEND_URL;
 
 const ChatScreen = ({ selectedChat, userId, token }) => {
   const lastTypingTimeRef = useRef(0);
-  const [isTyping, setIsTyping] = useState(false)
-  const [typing, setTyping] = useState(false)
+  const messagesEndRef = useRef(null);
+
+  const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState("");
+  const [typing, setTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+
+
+  const getUserIdFromToken = () => {
+    if (userId) return userId;
+
+    const storedToken = localStorage.getItem("token");
+    if (!storedToken) return null;
+
+    try {
+      const payload = JSON.parse(atob(storedToken.split(".")[1]));
+      return payload.id;
+    } catch {
+      return null;
+    }
+  };
+
+  const currentUserId = getUserIdFromToken();
 
 
   useEffect(() => {
@@ -24,28 +44,24 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
       socket.off("typing");
       socket.off("stop_typing");
     };
-  }, [socket]);
+  }, []);
 
 
   const handleInputChange = (e) => {
     setMessage(e.target.value);
 
-    if (!socket || !socket.connected) return;
+    if (!socket || !socket.connected || !selectedChat) return;
 
     if (!typing) {
       setTyping(true);
       socket.emit("typing", selectedChat.id);
     }
 
-    // Use the Ref to track time across renders
-    lastTypingTimeRef.current = new Date().getTime();
+    lastTypingTimeRef.current = Date.now();
     const timerLength = 3000;
 
     setTimeout(() => {
-      const timeNow = new Date().getTime();
-      const timeDiff = timeNow - lastTypingTimeRef.current;
-
-      // Only stop typing if 3 seconds have passed since the LAST keystroke
+      const timeDiff = Date.now() - lastTypingTimeRef.current;
       if (timeDiff >= timerLength && typing) {
         socket.emit("stop_typing", selectedChat.id);
         setTyping(false);
@@ -53,53 +69,20 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
     }, timerLength);
   };
 
-  // Get userId from token if not provided
-  const getUserIdFromToken = () => {
-    if (userId) return userId;
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.log('No token found in localStorage');
-      return null;
-    }
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      console.log('Decoded user ID from token:', payload.id);
-      return payload.id;
-    } catch (error) {
-      console.log('Error decoding token:', error);
-      return null;
-    }
-  };
-
-
-
-
-  const currentUserId = getUserIdFromToken();
-  console.log('Current user ID in ChatScreen:', currentUserId);
-  const [messages, setMessages] = useState([]);
-  const [message, setMessage] = useState("");
-  const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    if (!selectedChat) return;
+    if (!selectedChat || !token) return;
 
     const fetchMessages = async () => {
-      console.log('Fetching messages for chat:', selectedChat.id, 'Current user ID:', currentUserId);
       try {
         const res = await axios.get(
           `${server_url}/api/chat/messages/${selectedChat.id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        console.log('Raw messages response:', res.data);
-        console.log('Number of messages received:', res.data.length);
 
         const msgs = res.data.map((msg) => {
-          const msgSenderId = msg.sender?._id || msg.sender;
-          console.log('Processing message:', msg._id, 'Sender ID:', msgSenderId, 'Content:', msg.content);
-
-
-          const isMe = msgSenderId?.toString() === currentUserId?.toString();
-          console.log('Is Me:', isMe, 'Sender will be:', isMe ? "You" : "Other");
+          const senderId = msg.sender?._id || msg.sender;
+          const isMe = senderId?.toString() === currentUserId?.toString();
 
           return {
             id: msg._id,
@@ -107,36 +90,30 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
             text: msg.content,
             time: new Date(msg.createdAt).toLocaleTimeString([], {
               hour: "2-digit",
-              minute: "2-digit"
+              minute: "2-digit",
             }),
           };
         });
+
         setMessages(msgs);
-        console.log('Final mapped messages:', msgs);
+
         await axios.post(
           `${server_url}/api/chat/messages/read`,
           { chatId: selectedChat.id },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } catch (err) {
-        console.error('Error fetching messages:', err);
-        console.error('Error response:', err.response?.data);
-        console.error('Error status:', err.response?.status);
+        console.error("Error fetching messages:", err);
       }
     };
 
     fetchMessages();
 
-    // Join the chat room only if socket is available and connected
-    if (socket && socket.connected) {
+    if (socket?.connected) {
       socket.emit("join_room", selectedChat.id);
-    } else {
-      console.warn('Socket not connected, cannot join room');
     }
+  }, [selectedChat?.id, token, currentUserId]);
 
-  }, [selectedChat, token, currentUserId]);
-
-  console.log('Fetched Messages', messages);
 
   useEffect(() => {
     if (!socket) return;
@@ -145,34 +122,21 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
       const incomingChatId = data.chat?._id || data.chat;
       if (!selectedChat || incomingChatId?.toString() !== selectedChat.id.toString()) return;
 
+      const senderId = data.sender?._id || data.sender;
+      const isMe = senderId?.toString() === currentUserId?.toString();
+
       setMessages((prev) => {
-        const isMyMessageFromSocket = (data.sender?._id || data.sender) === currentUserId;
-
-        const tempMessageIndex = prev.findIndex(m =>
-          m.sender === "You" && m.text === data.content && m.id.toString().startsWith("temp-")
-        );
-
-        if (isMyMessageFromSocket && tempMessageIndex !== -1) {
-          const newMessages = [...prev];
-          newMessages[tempMessageIndex] = {
-            ...newMessages[tempMessageIndex],
-            id: data._id, 
-            time: new Date(data.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          };
-          return newMessages;
-        }
-
-        if (prev.some(m => m.id === data._id)) return prev;
+        if (prev.some((m) => m.id === data._id)) return prev;
 
         return [
           ...prev,
           {
-            id: data._id || Date.now(),
-            sender: isMyMessageFromSocket ? "You" : "Other",
+            id: data._id,
+            sender: isMe ? "You" : "Other",
             text: data.content,
-            time: new Date(data.createdAt || Date.now()).toLocaleTimeString([], {
+            time: new Date(data.createdAt).toLocaleTimeString([], {
               hour: "2-digit",
-              minute: "2-digit"
+              minute: "2-digit",
             }),
           },
         ];
@@ -181,48 +145,36 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
 
     socket.on("recv_msg", handleReceiveMessage);
     return () => socket.off("recv_msg", handleReceiveMessage);
-  }, [selectedChat?.id, currentUserId, socket]);
+  }, [selectedChat?.id, currentUserId]);
 
-  const scrollToBottom = () => {
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, [messages, selectedChat?.id]);
 
-  useEffect(() => {
-    if (messages.length > 0) {
-  
-      const timer = setTimeout(() => {
-        scrollToBottom();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    if (selectedChat) {
-      scrollToBottom();
-    }
-  }, [selectedChat?.id]);
-
+ 
   const sendMessage = async () => {
     const cleanMessage = message.trim();
     if (!cleanMessage || !selectedChat) return;
 
-    const tempId = `temp-${Date.now()}`;
-    const newMsg = {
-      id: tempId,
+    setMessage("");
+
+    const tempMessage = {
+      id: `temp-${Date.now()}`,
       sender: "You",
       text: cleanMessage,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
 
-    setMessage(""); 
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages((prev) => [...prev, tempMessage]);
 
-    if (socket && socket.connected) {
+    if (socket?.connected) {
       socket.emit("send_message", {
         message: cleanMessage,
         to: selectedChat.id,
-        senderId: currentUserId
       });
     }
 
@@ -233,14 +185,17 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
     } catch (err) {
-      console.error("Failed to save message", err);
-
+      console.error("Failed to save message:", err);
     }
   };
 
-  if (!selectedChat)
-    return <div className="flex-1 flex items-center justify-center text-gray-500">Select a chat to start messaging</div>;
-
+  if (!selectedChat) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-gray-500">
+        Select a chat to start messaging
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col w-full h-full bg-[#0F172A] relative overflow-hidden">
       <ChatNavbar chat={selectedChat} />

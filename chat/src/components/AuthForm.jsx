@@ -1,11 +1,15 @@
 import { useState, cloneElement } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, User, ArrowRight, ChevronDown, ArrowLeft, ShieldCheck } from "lucide-react";
+import {
+  Lock,
+  User,
+  ArrowRight,
+  ChevronDown
+} from "lucide-react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
 
-const server_url = 'https://chat-app-l5l5.vercel.app' || 'http://localhost:3003';
-
+const server_url = import.meta.env.VITE_BACKEND_URL;
 
 const AuthForm = () => {
   const [mode, setMode] = useState("login");
@@ -21,69 +25,58 @@ const AuthForm = () => {
   const isSignup = mode === "signup";
   const isForgot = mode === "forgot";
 
+
   const SignUp = async () => {
-    console.log("DEBUG: SignUp function triggered");
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post(`${server_url}/api/auth/signup`, {
-        name: name,
+      await axios.post(`${server_url}/api/auth/signup`, {
+        name,
         phone_number: phone,
-        password: password,
+        password,
       });
-      console.log("DEBUG: Signup Success Response ->", res.data);
+
       alert("Account created successfully! Please log in.");
       setMode("login");
     } catch (err) {
-      console.error("DEBUG: Signup Error ->", err.response?.data);
       setError(err.response?.data?.message || "Signup failed. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
+
   const SignIn = async () => {
-    console.log("DEBUG 1: SignIn function started");
     setLoading(true);
     setError("");
 
     try {
-      console.log("DEBUG 2: Sending request to backend with:", { phone, password });
       const res = await axios.post(`${server_url}/api/auth/signin`, {
         phone_number: phone,
-        password: password,
+        password,
       });
 
-      console.log("DEBUG 3: Success! Received Data ->", res.data);
-
-      if (res.data.token) {
+      if (res.data?.token) {
         localStorage.setItem("token", res.data.token);
-        
         localStorage.setItem("user", JSON.stringify(res.data.user));
-
-        console.log("DEBUG 4: Data saved to localStorage. Redirecting...");
-        
-
-        navigate("/"); 
+        navigate("/");
       }
     } catch (err) {
-      console.error("DEBUG 5: Catch Block Error ->", err.response);
-      setError(err.response?.data?.message || "Invalid credentials or Server error");
+      setError(err.response?.data?.message || "Invalid credentials");
     } finally {
       setLoading(false);
-      console.log("DEBUG 6: SignIn sequence finished");
     }
   };
-// OTP functionality 
+
+
   const SendOTP = async () => {
-    console.log("DEBUG: SendOTP triggered");
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post(`${server_url}/api/forgot-password`, {
+      await axios.post(`${server_url}/api/auth/forgot-password`, {
         phone_number: phone,
       });
-      console.log("DEBUG: OTP Response ->", res.data);
+
       alert("OTP sent to your phone!");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to send OTP");
@@ -92,27 +85,21 @@ const AuthForm = () => {
     }
   };
 
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    e.stopPropagation(); 
-    
-    console.log("DEBUG: Form Submit button clicked. Current Mode:", mode);
 
-    if (mode === "login") {
-      SignIn();
-    } else if (mode === "signup") {
-      SignUp();
-    } else if (mode === "forgot") {
-      SendOTP();
-    }
+    if (isLogin) SignIn();
+    else if (isSignup) SignUp();
+    else if (isForgot) SendOTP();
   };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-6 bg-black text-white">
       <div className="relative w-full max-w-[420px]">
-        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-500 rounded-[2.5rem] blur opacity-20"></div>
-        
-        <div className="relative bg-gray-900/90 backdrop-blur-3xl border border-white/10 p-10 rounded-[2.5rem] shadow-2xl">
+        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-500 rounded-[2.5rem] blur opacity-20" />
+
+        <div className="relative bg-gray-900/90 border border-white/10 p-10 rounded-[2.5rem] shadow-2xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-black tracking-tighter">
               {isLogin && "Welcome Back"}
@@ -120,26 +107,32 @@ const AuthForm = () => {
               {isForgot && "Recovery"}
             </h1>
             <p className="text-gray-400 text-sm mt-2">
-              {isForgot ? "We'll send a code to your phone" : "Enter your details to continue"}
+              {isForgot
+                ? "We'll send a code to your phone"
+                : "Enter your details to continue"}
             </p>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <AnimatePresence mode="popLayout">
               {isSignup && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
                   <InputGroup
                     icon={<User />}
                     type="text"
                     placeholder="Full Name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    required={isSignup}
+                    required
                   />
                 </motion.div>
               )}
 
-              <div className="relative group">
+              <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-gray-400 border-r border-white/10 pr-3">
                   <span className="text-sm font-bold">+91</span>
                   <ChevronDown size={14} />
@@ -150,26 +143,30 @@ const AuthForm = () => {
                   placeholder="Phone Number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/10 focus:border-blue-500 rounded-2xl py-4 pl-20 pr-4 outline-none transition-all"
+                  className="w-full bg-white/[0.03] border border-white/10 focus:border-blue-500 rounded-2xl py-4 pl-20 pr-4 outline-none"
                 />
               </div>
 
               {!isForgot && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
                   <InputGroup
                     icon={<Lock />}
                     type="password"
-                    required
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                 </motion.div>
               )}
             </AnimatePresence>
 
             {error && (
-              <p className="text-red-400 text-xs font-medium text-center bg-red-400/10 py-2 rounded-lg">
+              <p className="text-red-400 text-xs text-center bg-red-400/10 py-2 rounded-lg">
                 {error}
               </p>
             )}
@@ -177,7 +174,9 @@ const AuthForm = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full bg-blue-600 hover:bg-blue-500 font-black py-4 rounded-2xl transition-all flex items-center justify-center gap-2 ${loading ? "opacity-50 cursor-not-allowed" : "active:scale-95"}`}
+              className={`w-full bg-blue-600 hover:bg-blue-500 font-black py-4 rounded-2xl transition-all flex items-center justify-center gap-2 ${
+                loading ? "opacity-50 cursor-not-allowed" : "active:scale-95"
+              }`}
             >
               {loading ? "PLEASE WAIT..." : (
                 <>
@@ -192,16 +191,23 @@ const AuthForm = () => {
 
           <div className="mt-8 space-y-4 text-center">
             {isLogin && (
-              <button type="button" onClick={() => setMode("forgot")} className="text-xs text-gray-500 hover:text-blue-400 font-bold uppercase">
+              <button
+                type="button"
+                onClick={() => setMode("forgot")}
+                className="text-xs text-gray-500 hover:text-blue-400 font-bold uppercase"
+              >
                 Forgot Password?
               </button>
             )}
 
             <div className="text-sm text-gray-400">
-              {isLogin ? "New here?" : "Have an account?"} 
-              <button 
-                type="button" 
-                onClick={() => { setError(""); setMode(isLogin ? "signup" : "login"); }}
+              {isLogin ? "New here?" : "Have an account?"}
+              <button
+                type="button"
+                onClick={() => {
+                  setError("");
+                  setMode(isLogin ? "signup" : "login");
+                }}
                 className="ml-2 text-blue-400 font-bold hover:underline"
               >
                 {isLogin ? "Sign Up" : "Log In"}
@@ -221,7 +227,7 @@ const InputGroup = ({ icon, ...props }) => (
     </div>
     <input
       {...props}
-      className="w-full bg-white/[0.03] border border-white/10 focus:border-blue-500 rounded-2xl py-4 pl-12 pr-4 outline-none transition-all"
+      className="w-full bg-white/[0.03] border border-white/10 focus:border-blue-500 rounded-2xl py-4 pl-12 pr-4 outline-none"
     />
   </div>
 );
