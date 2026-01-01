@@ -1,6 +1,6 @@
 import express from "express";
 import {
-  getProfile,      // Unified controller for 'me' and 'others'
+  getProfile,     
   updateProfile,
   searchUsers
 } from "../controllers/user.controller.js";

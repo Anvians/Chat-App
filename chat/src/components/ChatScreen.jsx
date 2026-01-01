@@ -6,6 +6,8 @@ import { Send, Paperclip, Smile } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 
+const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+
 const ChatScreen = ({ selectedChat, userId, token }) => {
   const lastTypingTimeRef = useRef(0);
   const [isTyping, setIsTyping] = useState(false)
@@ -85,7 +87,7 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
       console.log('Fetching messages for chat:', selectedChat.id, 'Current user ID:', currentUserId);
       try {
         const res = await axios.get(
-          `http://localhost:3003/api/chat/messages/${selectedChat.id}`,
+          `${server_url}/api/chat/messages/${selectedChat.id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         console.log('Raw messages response:', res.data);
@@ -112,7 +114,7 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
         setMessages(msgs);
         console.log('Final mapped messages:', msgs);
         await axios.post(
-          "http://localhost:3003/api/chat/messages/read",
+          `${server_url}/api/chat/messages/read`,
           { chatId: selectedChat.id },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -226,7 +228,7 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
 
     try {
       await axios.post(
-        "http://localhost:3003/api/chat/message",
+        `${server_url}/api/chat/message`,
         { content: cleanMessage, chatId: selectedChat.id },
         { headers: { Authorization: `Bearer ${token}` } }
       );

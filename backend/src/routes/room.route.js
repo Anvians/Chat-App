@@ -16,7 +16,7 @@ const router = express.Router();
 
 router.use(auth);
 
-router.post("/create", createRoom);          // Admin: Create new group
+router.post("/create", createRoom);          
 router.get("/my", getMyRooms);               // List of rooms I am a member of
 router.get("/discover", getAllRooms);        // Public rooms available to join
 router.post("/:roomId/join", joinRoom);      // Direct join (Public)

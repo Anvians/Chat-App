@@ -4,6 +4,9 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Phone, Bell, Shield, Mail, Edit3, Save, Camera, ArrowLeft, MessageSquare } from "lucide-react";
 
+const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+
+
 const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
   const { id } = useParams(); 
   const navigate = useNavigate();
@@ -23,8 +26,8 @@ const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
     try {
       const token = localStorage.getItem("token");
       const url = id 
-        ? `http://localhost:3003/api/user/profile/${id}` 
-        : `http://localhost:3003/api/user/profile`;
+        ? `${server_url}/api/user/profile/${id}` 
+        : `${server_url}/api/user/profile`;
 
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` }
@@ -43,7 +46,7 @@ const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.put("http://localhost:3003/api/user/update", formData, {
+      const res = await axios.put(`${server_url}/api/user/update`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUser(res.data.user);

@@ -1,9 +1,10 @@
 import { io } from 'socket.io-client';
 
 const token = localStorage.getItem('token');
+const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
 
 // Only create socket connection if user is authenticated
-const socket = token ? io('http://localhost:3003', {
+const socket = token ? io(`${server_url}`, {
   auth: { token },
   transports: ['websocket', 'polling'], 
   timeout: 20000, // 20 second timeout

@@ -3,7 +3,8 @@ import { LogOut, Search } from "lucide-react";
 import axios from "axios";
 import { io } from "socket.io-client";
 
-const API_URL = "http://localhost:3003";
+const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+
 
 const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
   const [chats, setChats] = useState([]);
@@ -33,7 +34,7 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
   const fetchChats = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_URL}/api/chat/sidebar`, {
+      const res = await axios.get(`${server_url}/api/chat/sidebar`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const sorted = res.data.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
@@ -50,7 +51,7 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
     fetchMyProfile();
     fetchChats();
 
-    const socket = io(API_URL, {
+    const socket = io(server_url, {
         auth: { token: localStorage.getItem("token") }
     });
     

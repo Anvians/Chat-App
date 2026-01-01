@@ -4,6 +4,9 @@ import { Lock, User, ArrowRight, ChevronDown, ArrowLeft, ShieldCheck } from "luc
 import axios from "axios";
 import { useNavigate } from "react-router-dom"; 
 
+const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+
+
 const AuthForm = () => {
   const [mode, setMode] = useState("login");
   const [phone, setPhone] = useState("");
@@ -23,7 +26,7 @@ const AuthForm = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post("http://localhost:3003/api/auth/signup", {
+      const res = await axios.post(`${server_url}/api/auth/signup`, {
         name: name,
         phone_number: phone,
         password: password,
@@ -46,7 +49,7 @@ const AuthForm = () => {
 
     try {
       console.log("DEBUG 2: Sending request to backend with:", { phone, password });
-      const res = await axios.post("http://localhost:3003/api/auth/signin", {
+      const res = await axios.post(`${server_url}/api/auth/signin`, {
         phone_number: phone,
         password: password,
       });
@@ -77,7 +80,7 @@ const AuthForm = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post("http://localhost:3003/api/forgot-password", {
+      const res = await axios.post(`${server_url}/api/forgot-password`, {
         phone_number: phone,
       });
       console.log("DEBUG: OTP Response ->", res.data);

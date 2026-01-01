@@ -3,20 +3,23 @@ import Chat from '../models/chats.model.js';
 import Message from '../models/message.model.js';
 import Room from '../models/rooms.model.js';
 
+
+
 export const accessChat = async (req, res) => {
   const { userId } = req.body; 
-  const myId = req.user.id;
-
-  if (!userId) {
-    return res.status(400).json({ message: "UserId param not sent" });
-  }
+  const myId = req.user.id;   
+  if (!userId) return res.status(400).json({ message: "UserId not sent" });
 
   try {
+    const myObjectId = new mongoose.Types.ObjectId(myId);
+    const targetObjectId = new mongoose.Types.ObjectId(userId);
+
     let chat = await Chat.findOne({
       isGroupChat: false,
-      users: { $all: [myId, userId] }
-    }).populate("users", "name dp username")
-      .populate("lastMessage");
+      users: { $all: [myObjectId, targetObjectId] }
+    })
+    .populate("users", "name dp username")
+    .populate("lastMessage");
 
     if (chat) {
       return res.status(200).json(chat);
@@ -25,13 +28,11 @@ export const accessChat = async (req, res) => {
     const newChat = await Chat.create({
       chatName: "sender",
       isGroupChat: false,
-      users: [myId, userId]
+      users: [myObjectId, targetObjectId]
     });
 
-    chat = await Chat.findById(newChat._id)
-      .populate("users", "name dp username");
-
-    res.status(201).json(chat);
+    const fullChat = await Chat.findById(newChat._id).populate("users", "name dp username");
+    res.status(201).json(fullChat);
 
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
@@ -107,8 +108,10 @@ export const fetchMessages = async (req, res) => {
       .populate("sender", "name dp username")
       .sort({ createdAt: 1 });
 
+    console.log(`Fetched ${messages.length} messages for chat ${chatId}`);
     res.status(200).json(messages);
   } catch (err) {
+    console.error("Error fetching messages:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };

@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import {useNavigate} from "react-router-dom"
 import { Users, ArrowRight, Hash, Shield } from "lucide-react";
 
+const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+
+
 const Room = ({ rooms: roomsPath }) => { 
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +30,7 @@ const Room = ({ rooms: roomsPath }) => {
       console.log("Using Token:", localStorage.getItem("token"));
       try {
         const response = await fetch(
-          `http://localhost:3003/api/${roomsPath}`,
+          `${server_url}/api/${roomsPath}`,
           {
             method: "GET",
             headers: {

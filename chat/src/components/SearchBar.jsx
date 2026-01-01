@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
+
+
 const AnimatedSearchBar = ({ onSelectChat }) => {
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
@@ -23,7 +26,7 @@ const AnimatedSearchBar = ({ onSelectChat }) => {
                 try {
                     const token = localStorage.getItem("token");
                     const res = await axios.get(
-                        `http://localhost:3003/api/user/search?query=${query}`,
+                        `${server_url}/api/user/search?query=${query}`,
                         { headers: { Authorization: `Bearer ${token}` } }
                     );
                     setResults(res.data);
@@ -47,7 +50,7 @@ const handleUserClick = async (clickedUserId) => {
         const myId = currentUser?._id || currentUser?.id;
         
         const res = await axios.post(
-            "http://localhost:3003/api/chat", 
+            `${server_url}/api/chat`, 
             { userId: clickedUserId }, 
             { headers: { Authorization: `Bearer ${token}` } }
         );

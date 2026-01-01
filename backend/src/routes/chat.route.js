@@ -13,7 +13,7 @@ import { getMySidebarChats } from "../controllers/sidebar.controller.js";
 const router = express.Router();
 
 router.get("/sidebar", auth, getMySidebarChats);
-router.post("/access-chat", auth, accessChat);
+router.post("/", auth, accessChat);
 router.post("/group", auth, createGroupChat);
 router.post("/message", auth, sendMessage);
 router.get("/messages/:chatId", auth, fetchMessages);
