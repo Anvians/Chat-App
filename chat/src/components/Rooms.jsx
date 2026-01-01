@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
-import {useNavigate} from "react-router-dom"
+import { useNavigate } from "react-router-dom";
 import { Users, ArrowRight, Hash, Shield } from "lucide-react";
 
-const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
-
+const server_url = import.meta.env.VITE_BACKEND_URL;
 
 const Room = ({ rooms: roomsPath }) => { 
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem("token");
-  if (!token) {
-    const navigate = useNavigate()
-    navigate("/login")
-  }
+
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!token) {
+      navigate("/login");
+    }
+  }, [token, navigate]);
+
   useEffect(() => {
     if (!roomsPath) return;
 
@@ -26,19 +29,18 @@ const Room = ({ rooms: roomsPath }) => {
         setLoading(false);
         return;
       }
+
       console.log("Fetching from:", roomsPath);
-      console.log("Using Token:", localStorage.getItem("token"));
+      console.log("Using Token:", savedToken);
+
       try {
-        const response = await fetch(
-          `${server_url}/api/${roomsPath}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${savedToken}`,
-            },
-          }
-        );
+        const response = await fetch(`${server_url}/api/${roomsPath}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${savedToken}`,
+          },
+        });
 
         if (response.status === 401) {
           console.error("Server says: Unauthorized. Check if token is expired.");
@@ -55,6 +57,7 @@ const Room = ({ rooms: roomsPath }) => {
 
     getRooms();
   }, [roomsPath]);
+
   return (
     <div className="p-8 w-full h-full bg-[#0F172A] overflow-y-auto custom-scrollbar relative">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-64 bg-blue-600/10 blur-[120px] pointer-events-none"></div>

@@ -3,8 +3,7 @@ import { LogOut, Search } from "lucide-react";
 import axios from "axios";
 import { io } from "socket.io-client";
 
-const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
-
+const server_url = import.meta.env.VITE_BACKEND_URL;
 
 const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
   const [chats, setChats] = useState([]);
@@ -46,33 +45,26 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
     }
   };
 
-
   useEffect(() => {
     fetchMyProfile();
     fetchChats();
 
     const socket = io(server_url, {
-        auth: { token: localStorage.getItem("token") }
-    });
-    
-    // Listen for the event when someone else starts a chat 
-    socket.on("new_chat_added", () => {
-      fetchChats();
-    });
-// Listen for incoming messages to refresh chat list
-    socket.on("recv_msg", (data) => {
-      fetchChats(); 
+      auth: { token: localStorage.getItem("token") }
     });
 
+    // Listen for new chats or messages
+    socket.on("new_chat_added", fetchChats);
+    socket.on("recv_msg", fetchChats);
+
     return () => socket.disconnect();
-  }, [refreshTrigger]); 
+  }, [refreshTrigger]);
 
   const handleSignOut = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     window.location.href = "/auth";
   };
-  
 
   return (
     <div className="flex flex-col w-80 h-full bg-[#020617]/60 backdrop-blur-xl text-gray-100 border-r border-white/5">
