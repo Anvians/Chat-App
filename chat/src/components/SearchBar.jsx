@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
-
+// ✅ Use environment variable for backend URL
+const server_url = import.meta.env.VITE_BACKEND_URL;
 
 const AnimatedSearchBar = ({ onSelectChat }) => {
     const navigate = useNavigate();
@@ -43,37 +43,38 @@ const AnimatedSearchBar = ({ onSelectChat }) => {
         return () => clearTimeout(timer);
     }, [query]);
 
-const handleUserClick = async (clickedUserId) => {
-    try {
-        const token = localStorage.getItem("token");
-        const currentUser = JSON.parse(localStorage.getItem("user"));
-        const myId = currentUser?._id || currentUser?.id;
-        
-        const res = await axios.post(
-            `${server_url}/api/chat`, 
-            { userId: clickedUserId }, 
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
+    const handleUserClick = async (clickedUserId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const currentUser = JSON.parse(localStorage.getItem("user"));
+            const myId = currentUser?._id || currentUser?.id;
+            
+            const res = await axios.post(
+                `${server_url}/api/chat`, 
+                { userId: clickedUserId }, 
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
 
-        const chatData = res.data;
+            const chatData = res.data;
 
-        const otherUser = chatData.users.find(u => u._id.toString() !== myId.toString());
+            const otherUser = chatData.users.find(u => u._id.toString() !== myId.toString());
 
-        if (onSelectChat) {
-            onSelectChat({
-                id: chatData._id,
-                name: otherUser?.name || "User",
-                dp: otherUser?.dp || otherUser?.avatar || "https://i.pravatar.cc/150",
-            });
+            if (onSelectChat) {
+                onSelectChat({
+                    id: chatData._id,
+                    name: otherUser?.name || "User",
+                    dp: otherUser?.dp || otherUser?.avatar || "https://i.pravatar.cc/150",
+                });
+            }
+
+            navigate("/chat");
+            setIsOpen(false);
+            setQuery("");
+        } catch (err) {
+            console.error("Failed to access chat from search", err);
         }
+    };
 
-        navigate("/chat");
-        setIsOpen(false);
-        setQuery("");
-    } catch (err) {
-        console.error("Failed to access chat from search", err);
-    }
-};
     return (
         <div className="relative flex items-center">
             <motion.div
@@ -113,7 +114,7 @@ const handleUserClick = async (clickedUserId) => {
                 </AnimatePresence>
             </motion.div>
 
-        {/* Results Dropdown */}
+            {/* Results Dropdown */}
             <AnimatePresence>
                 {isOpen && query.length > 1 && (
                     <motion.div
