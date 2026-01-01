@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import Sider from "./components/Sider";
@@ -8,23 +8,34 @@ import UserProfile from "./components/UserProfile";
 import Room from "./components/Rooms";
 import Navbar from "./components/Navbar";
 import { MessageSquareDashed } from "lucide-react";
-
 const App = () => {
   const [activeChat, setActiveChat] = useState(null);
   const [loadMyRoom, setLoadMyRoom] = useState(false);
+  const [refreshSidebar, setRefreshSidebar] = useState(0); 
+
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isAuthPage = location.pathname === "/auth";
   const isChatPage = location.pathname === "/chat";
-  
+  console.log('Active Chat in App:', activeChat)
   // Check if current path starts with /profile (matches /profile and /profile/:id)
   const isProfilePage = location.pathname.startsWith("/profile");
-
+const triggerSidebarRefresh = () => setRefreshSidebar(prev => prev + 1);
   // Navbar is hidden on Auth and Chat screens
   const showNavbar = !isAuthPage && !isChatPage;
 
   // Sidebar is hidden on Auth and ANY Profile screen (own or others)
   // const showSider = !isAuthPage && !isProfilePage;
+  //I will use this if needed
+
+  // Combined function to set active chat and navigate to chat page
+  const handleSelectChat = (chat) => {
+    console.log('Setting active chat:', chat);
+    setActiveChat(chat);
+    setRefreshSidebar(prev => prev + 1); // Refresh sidebar when chat is selected
+    navigate('/chat');
+  };
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#020617] text-white selection:bg-blue-500/30">
@@ -37,24 +48,27 @@ const App = () => {
 
       {showNavbar && (
         <header className="z-50 bg-[#020617]/80 backdrop-blur-xl border-b border-white/5">
-          <Navbar onMyRoomClick={() => setLoadMyRoom(prev => !prev)} />
+          {/* Pass setActiveChat as onSelectChat to Navbar */}
+          <Navbar
+            onMyRoomClick={() => setLoadMyRoom(prev => !prev)}
+            onSelectChat={handleSelectChat}
+          />
         </header>
       )}
 
       <div className="flex flex-1 overflow-hidden relative z-10">
-        
-        {/* Sidebar Logic: Managed by showSider */}
+
         <AnimatePresence>
           {/* {showSider && ( */}
-            <motion.aside 
-              initial={{ x: -320, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -320, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="h-full z-40 border-r border-white/5 bg-[#020617]/40 backdrop-blur-sm"
-            >
-              <Sider onSelectUser={setActiveChat} activeUserId={activeChat?.id} />
-            </motion.aside>
+          <motion.aside
+            initial={{ x: -320, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -320, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="h-full z-40 border-r border-white/5 bg-[#020617]/40 backdrop-blur-sm"
+          >
+            <Sider onSelectUser={handleSelectChat} refreshTrigger={refreshSidebar} activeUserId={activeChat?.id} />
+          </motion.aside>
           {/* )} */}
         </AnimatePresence>
 
@@ -76,19 +90,23 @@ const App = () => {
                 />
 
                 {/* Profile Routes: Passed onSelectChat to allow messaging from profile */}
-                <Route 
-                  path="/profile" 
-                  element={<UserProfile isPage={true} onSelectChat={setActiveChat} />} 
+                <Route
+                  path="/profile"
+                  element={<UserProfile isPage={true} onSelectChat={handleSelectChat} />}
                 />
-                <Route 
-                  path="/profile/:id" 
-                  element={<UserProfile isPage={true} onSelectChat={setActiveChat} />} 
+                <Route
+                  path="/profile/:id"
+                  element={<UserProfile isPage={true} onSelectChat={handleSelectChat} />}
                 />
 
                 {/* Chat Section */}
                 <Route path="/chat" element={
                   activeChat ? (
-                    <ChatScreen selectedChat={activeChat} />
+                    <ChatScreen
+                      selectedChat={activeChat}
+                      token={localStorage.getItem("token")}
+                      userId={JSON.parse(localStorage.getItem("user"))?._id}
+                    />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                       <div className="p-6 bg-blue-500/10 rounded-full">

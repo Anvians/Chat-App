@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import AnimatedSearchBar from "./SearchBar.jsx";
 
-const Navbar = ({ onMyRoomClick }) => {
+const Navbar = ({ onMyRoomClick, onSelectChat }) => {
   return (
     <div className="w-full h-16 bg-gray-900 flex items-center justify-between px-8 shadow-lg border-b border-white/5 relative z-[100]">
 
@@ -30,7 +30,7 @@ const Navbar = ({ onMyRoomClick }) => {
 
       <div className="flex items-center gap-3">
 
-        <AnimatedSearchBar />
+        <AnimatedSearchBar  onSelectChat={onSelectChat} />
 
         <div className="relative group">
           <button

@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 
 const API_URL = "http://localhost:3003";
 
-const Sider = ({ onSelectUser, activeUserId }) => {
+const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -45,47 +45,33 @@ const Sider = ({ onSelectUser, activeUserId }) => {
     }
   };
 
+
   useEffect(() => {
     fetchMyProfile();
     fetchChats();
 
-    const socket = io(API_URL);
-    const myId = getUserIdFromToken();
-
-    // Listen for incoming messages
-    socket.on("newMessage", (message) => {
-      setChats((prevChats) => {
-        // Find if this conversation already exists in the sidebar
-        const existingChatIndex = prevChats.findIndex(
-          (c) => c.id === message.senderId || c.id === message.receiverId
-        );
-
-        if (existingChatIndex !== -1) {
-          // Update the existing chat with the new message and time
-          const updatedChat = {
-            ...prevChats[existingChatIndex],
-            lastMessage: message.text,
-            updatedAt: new Date().toISOString(),
-          };
-
-          const remainingChats = prevChats.filter((_, i) => i !== existingChatIndex);
-          return [updatedChat, ...remainingChats];
-        } else {
-          // If it's a new conversation not yet in sidebar, re-fetch to get user details
-          fetchChats();
-          return prevChats;
-        }
-      });
+    const socket = io(API_URL, {
+        auth: { token: localStorage.getItem("token") }
+    });
+    
+    // Listen for the event when someone else starts a chat 
+    socket.on("new_chat_added", () => {
+      fetchChats();
+    });
+// Listen for incoming messages to refresh chat list
+    socket.on("recv_msg", (data) => {
+      fetchChats(); 
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [refreshTrigger]); 
 
   const handleSignOut = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     window.location.href = "/auth";
   };
+  
 
   return (
     <div className="flex flex-col w-80 h-full bg-[#020617]/60 backdrop-blur-xl text-gray-100 border-r border-white/5">
@@ -129,10 +115,10 @@ const Sider = ({ onSelectUser, activeUserId }) => {
           <li className="text-center text-gray-500 py-10 text-xs italic">No conversations yet</li>
         ) : (
           chats.map((chat) => {
-            const isActive = activeUserId === chat.id;
+            const isActive = activeUserId === chat._id;
             return (
               <li
-                key={chat.id}
+                key={chat._id}
                 onClick={() => onSelectUser(chat)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 group ${
                   isActive 

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const AnimatedSearchBar = () => {
+const AnimatedSearchBar = ({ onSelectChat }) => {
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
@@ -40,12 +40,37 @@ const AnimatedSearchBar = () => {
         return () => clearTimeout(timer);
     }, [query]);
 
-    const handleUserClick = (userId) => {
-        navigate(`/profile/${userId}`);
+const handleUserClick = async (clickedUserId) => {
+    try {
+        const token = localStorage.getItem("token");
+        const currentUser = JSON.parse(localStorage.getItem("user"));
+        const myId = currentUser?._id || currentUser?.id;
+        
+        const res = await axios.post(
+            "http://localhost:3003/api/chat", 
+            { userId: clickedUserId }, 
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const chatData = res.data;
+
+        const otherUser = chatData.users.find(u => u._id.toString() !== myId.toString());
+
+        if (onSelectChat) {
+            onSelectChat({
+                id: chatData._id,
+                name: otherUser?.name || "User",
+                dp: otherUser?.dp || otherUser?.avatar || "https://i.pravatar.cc/150",
+            });
+        }
+
+        navigate("/chat");
         setIsOpen(false);
         setQuery("");
-    };
-
+    } catch (err) {
+        console.error("Failed to access chat from search", err);
+    }
+};
     return (
         <div className="relative flex items-center">
             <motion.div

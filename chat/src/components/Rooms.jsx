@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
+import {useNavigate} from "react-router-dom"
 import { Users, ArrowRight, Hash, Shield } from "lucide-react";
 
 const Room = ({ rooms: roomsPath }) => { 
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem("token");
-
+  if (!token) {
+    const navigate = useNavigate()
+    navigate("/login")
+  }
   useEffect(() => {
     if (!roomsPath) return;
 

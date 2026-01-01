@@ -5,91 +5,234 @@ import ChatNavbar from "./ChatNavbar";
 import { Send, Paperclip, Smile } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+
 const ChatScreen = ({ selectedChat, userId, token }) => {
+  const lastTypingTimeRef = useRef(0);
+  const [isTyping, setIsTyping] = useState(false)
+  const [typing, setTyping] = useState(false)
+
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("typing", () => setIsTyping(true));
+    socket.on("stop_typing", () => setIsTyping(false));
+
+    return () => {
+      socket.off("typing");
+      socket.off("stop_typing");
+    };
+  }, [socket]);
+
+
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+
+    if (!socket || !socket.connected) return;
+
+    if (!typing) {
+      setTyping(true);
+      socket.emit("typing", selectedChat.id);
+    }
+
+    // Use the Ref to track time across renders
+    lastTypingTimeRef.current = new Date().getTime();
+    const timerLength = 3000;
+
+    setTimeout(() => {
+      const timeNow = new Date().getTime();
+      const timeDiff = timeNow - lastTypingTimeRef.current;
+
+      // Only stop typing if 3 seconds have passed since the LAST keystroke
+      if (timeDiff >= timerLength && typing) {
+        socket.emit("stop_typing", selectedChat.id);
+        setTyping(false);
+      }
+    }, timerLength);
+  };
+
+  // Get userId from token if not provided
+  const getUserIdFromToken = () => {
+    if (userId) return userId;
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.log('No token found in localStorage');
+      return null;
+    }
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      console.log('Decoded user ID from token:', payload.id);
+      return payload.id;
+    } catch (error) {
+      console.log('Error decoding token:', error);
+      return null;
+    }
+  };
+
+
+
+
+  const currentUserId = getUserIdFromToken();
+  console.log('Current user ID in ChatScreen:', currentUserId);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const messagesEndRef = useRef(null);
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   useEffect(() => {
     if (!selectedChat) return;
 
     const fetchMessages = async () => {
+      console.log('Fetching messages for chat:', selectedChat.id, 'Current user ID:', currentUserId);
       try {
         const res = await axios.get(
           `http://localhost:3003/api/chat/messages/${selectedChat.id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        console.log('Raw messages response:', res.data);
+        console.log('Number of messages received:', res.data.length);
 
-        const msgs = res.data.map((msg) => ({
-          id: msg._id,
-          sender: msg.sender._id === userId ? "You" : "Other",
-          text: msg.content,
-          time: new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        }));
+        const msgs = res.data.map((msg) => {
+          const msgSenderId = msg.sender?._id || msg.sender;
+          console.log('Processing message:', msg._id, 'Sender ID:', msgSenderId, 'Content:', msg.content);
 
+
+          const isMe = msgSenderId?.toString() === currentUserId?.toString();
+          console.log('Is Me:', isMe, 'Sender will be:', isMe ? "You" : "Other");
+
+          return {
+            id: msg._id,
+            sender: isMe ? "You" : "Other",
+            text: msg.content,
+            time: new Date(msg.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit"
+            }),
+          };
+        });
         setMessages(msgs);
-
+        console.log('Final mapped messages:', msgs);
         await axios.post(
           "http://localhost:3003/api/chat/messages/read",
           { chatId: selectedChat.id },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching messages:', err);
+        console.error('Error response:', err.response?.data);
+        console.error('Error status:', err.response?.status);
       }
     };
 
     fetchMessages();
 
-    socket.emit("join_room", { room: selectedChat.id });
+    // Join the chat room only if socket is available and connected
+    if (socket && socket.connected) {
+      socket.emit("join_room", selectedChat.id);
+    } else {
+      console.warn('Socket not connected, cannot join room');
+    }
 
-  }, [selectedChat, token, userId]);
+  }, [selectedChat, token, currentUserId]);
+
+  console.log('Fetched Messages', messages);
 
   useEffect(() => {
-    const handleReceiveMessage = (data) => {
-      if (!selectedChat || data.chatId !== selectedChat.id) return;
+    if (!socket) return;
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          sender: data.senderId === userId ? "You" : "Other",
-          text: data.message,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
+    const handleReceiveMessage = (data) => {
+      const incomingChatId = data.chat?._id || data.chat;
+      if (!selectedChat || incomingChatId?.toString() !== selectedChat.id.toString()) return;
+
+      setMessages((prev) => {
+        const isMyMessageFromSocket = (data.sender?._id || data.sender) === currentUserId;
+
+        const tempMessageIndex = prev.findIndex(m =>
+          m.sender === "You" && m.text === data.content && m.id.toString().startsWith("temp-")
+        );
+
+        if (isMyMessageFromSocket && tempMessageIndex !== -1) {
+          const newMessages = [...prev];
+          newMessages[tempMessageIndex] = {
+            ...newMessages[tempMessageIndex],
+            id: data._id, 
+            time: new Date(data.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          };
+          return newMessages;
+        }
+
+        if (prev.some(m => m.id === data._id)) return prev;
+
+        return [
+          ...prev,
+          {
+            id: data._id || Date.now(),
+            sender: isMyMessageFromSocket ? "You" : "Other",
+            text: data.content,
+            time: new Date(data.createdAt || Date.now()).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit"
+            }),
+          },
+        ];
+      });
     };
 
     socket.on("recv_msg", handleReceiveMessage);
     return () => socket.off("recv_msg", handleReceiveMessage);
-  }, [selectedChat, userId]);
+  }, [selectedChat?.id, currentUserId, socket]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (messages.length > 0) {
+  
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (selectedChat) {
+      scrollToBottom();
+    }
+  }, [selectedChat?.id]);
 
   const sendMessage = async () => {
-    if (!message.trim() || !selectedChat) return;
-      console.log('Token in ChatScreen:', token)
+    const cleanMessage = message.trim();
+    if (!cleanMessage || !selectedChat) return;
 
+    const tempId = `temp-${Date.now()}`;
     const newMsg = {
+      id: tempId,
       sender: "You",
-      text: message,
+      text: cleanMessage,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
+    setMessage(""); 
     setMessages((prev) => [...prev, newMsg]);
-    setMessage("");
 
-    socket.emit("send_message", { message, to: selectedChat.id });
+    if (socket && socket.connected) {
+      socket.emit("send_message", {
+        message: cleanMessage,
+        to: selectedChat.id,
+        senderId: currentUserId
+      });
+    }
 
     try {
       await axios.post(
         "http://localhost:3003/api/chat/message",
-        { content: message, chatId: selectedChat.id },
+        { content: cleanMessage, chatId: selectedChat.id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
     } catch (err) {
       console.error("Failed to save message", err);
+
     }
   };
 
@@ -111,11 +254,11 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
             End-to-End Encrypted with {selectedChat.name}
           </p>
         </div>
-
+        {console.log('Rendering Messages:', messages)}
         <AnimatePresence initial={false}>
           {messages.map((msg, index) => (
             <motion.div
-              key={index}
+              key={msg.id}  
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
@@ -123,18 +266,16 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
             >
               <div className="max-w-[80%] md:max-w-[65%] group">
                 <div
-                  className={`relative px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md transition-all ${
-                    msg.sender === "You"
-                      ? "bg-blue-600 text-white rounded-tr-none shadow-blue-500/10"
-                      : "bg-white/5 text-gray-100 rounded-tl-none border border-white/5"
-                  }`}
+                  className={`relative px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md transition-all ${msg.sender === "You"
+                    ? "bg-blue-600 text-white rounded-tr-none shadow-blue-500/10"
+                    : "bg-white/5 text-gray-100 rounded-tl-none border border-white/5"
+                    }`}
                 >
                   <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
                 </div>
                 <p
-                  className={`text-[10px] mt-1.5 font-bold text-gray-500 tracking-tight ${
-                    msg.sender === "You" ? "text-right" : "text-left"
-                  }`}
+                  className={`text-[10px] mt-1.5 font-bold text-gray-500 tracking-tight ${msg.sender === "You" ? "text-right" : "text-left"
+                    }`}
                 >
                   {msg.time}
                 </p>
@@ -142,6 +283,25 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
             </motion.div>
           ))}
         </AnimatePresence>
+
+        {isTyping && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex justify-start mb-4"
+          >
+            <div className="bg-white/5 px-4 py-2 rounded-2xl rounded-tl-none border border-white/5 flex items-center gap-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                
+              </span>
+              <div className="flex gap-1">
+                <span className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1 h-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></span>
+              </div>
+            </div>
+          </motion.div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -154,7 +314,7 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
             rows="1"
             value={message}
             placeholder={`Message ${selectedChat.name}...`}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -169,9 +329,8 @@ const ChatScreen = ({ selectedChat, userId, token }) => {
             </button>
             <button
               onClick={sendMessage}
-              className={`p-4 rounded-2xl transition-all shadow-xl active:scale-95 ${
-                message.trim() ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-500 cursor-not-allowed"
-              }`}
+              className={`p-4 rounded-2xl transition-all shadow-xl active:scale-95 ${message.trim() ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-500 cursor-not-allowed"
+                }`}
             >
               <Send className="w-5 h-5 transition-transform" />
             </button>
