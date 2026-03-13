@@ -4,15 +4,16 @@ import { Users, ArrowRight, Hash, Shield } from "lucide-react";
 
 const server_url = import.meta.env.VITE_BACKEND_URL;
 
-const Room = ({ rooms: roomsPath }) => { 
+const Room = ({ rooms: roomsPath }) => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem("token");
 
   const navigate = useNavigate();
+
   useEffect(() => {
     if (!token) {
-      navigate("/login");
+      navigate("/auth");
     }
   }, [token, navigate]);
 
@@ -31,19 +32,20 @@ const Room = ({ rooms: roomsPath }) => {
       }
 
       console.log("Fetching from:", roomsPath);
-      console.log("Using Token:", savedToken);
 
       try {
         const response = await fetch(`${server_url}/api/${roomsPath}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${savedToken}`,
+            Authorization: `Bearer ${savedToken}`,
           },
         });
 
         if (response.status === 401) {
           console.error("Server says: Unauthorized. Check if token is expired.");
+          navigate("/auth");
+          return;
         }
 
         const data = await response.json();

@@ -1,0 +1,52 @@
+### Get all chats
+POST http://localhost:3003/api/auth/signin
+Content-Type: application/json
+
+{
+    "phone_number": "8182824183",
+    "password": "password"
+}
+###
+GET http://localhost:3000/api/chats
+
+
+### 
+Content-Type: application/json
+
+### Get chat by ID
+GET http://localhost:3000/api/chats/1
+Content-Type: application/json
+
+### Create new chat
+POST http://localhost:3000/api/chats
+Content-Type: application/json
+
+{
+    "title": "New Chat",
+    "userId": 1
+}
+
+### Send message
+POST http://localhost:3000/api/chats/1/messages
+Content-Type: application/json
+
+{
+    "content": "Hello, world!",
+    "userId": 1
+}
+
+### Get messages for chat
+GET http://localhost:3000/api/chats/1/messages
+Content-Type: application/json
+
+### Update chat
+PUT http://localhost:3000/api/chats/1
+Content-Type: application/json
+
+{
+    "title": "Updated Chat Title"
+}
+
+### Delete chat
+DELETE http://localhost:3000/api/chats/1
+Content-Type: application/json

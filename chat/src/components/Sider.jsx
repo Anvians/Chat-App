@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { LogOut, Search } from "lucide-react";
 import axios from "axios";
-import { io } from "socket.io-client";
+import socket from "../connection/ClientConnect";
 
 const server_url = import.meta.env.VITE_BACKEND_URL;
 
@@ -9,17 +9,6 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-
-  const getUserIdFromToken = () => {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      return payload.id;
-    } catch {
-      return null;
-    }
-  };
 
   const fetchMyProfile = async () => {
     try {
@@ -34,9 +23,11 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(`${server_url}/api/chat/sidebar`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const sorted = res.data.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      const sorted = res.data.sort(
+        (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+      );
       setChats(sorted);
     } catch (err) {
       console.error("Failed to fetch chats", err);
@@ -48,26 +39,29 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
   useEffect(() => {
     fetchMyProfile();
     fetchChats();
+  }, [refreshTrigger]);
 
-    const socket = io(server_url, {
-      auth: { token: localStorage.getItem("token") }
-    });
+  useEffect(() => {
+    if (!socket) return;
 
-    // Listen for new chats or messages
     socket.on("new_chat_added", fetchChats);
     socket.on("recv_msg", fetchChats);
 
-    return () => socket.disconnect();
-  }, [refreshTrigger]);
+    return () => {
+      socket.off("new_chat_added", fetchChats);
+      socket.off("recv_msg", fetchChats);
+    };
+  }, []);
 
   const handleSignOut = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    sessionStorage.removeItem("activeChat");
     window.location.href = "/auth";
   };
 
   return (
-    <div className="flex flex-col w-80 h-full bg-[#020617]/60 backdrop-blur-xl text-gray-100 border-r border-white/5">
+    <div className="flex flex-col w-full md:w-80 h-full bg-[#020617]/60 backdrop-blur-xl text-gray-100 border-r border-white/5">
       {/* Logged-in user */}
       {user && (
         <div className="flex items-center gap-3 px-6 py-5 border-b border-white/5">
@@ -80,7 +74,9 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
             <p className="font-bold text-sm truncate">{user.name}</p>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Online</p>
+              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                Online
+              </p>
             </div>
           </div>
         </div>
@@ -101,11 +97,13 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
       <ul className="flex-1 overflow-y-auto px-3 space-y-1 custom-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2">
-             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-             <p className="text-xs text-gray-500">Loading chats...</p>
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-gray-500">Loading chats...</p>
           </div>
         ) : chats.length === 0 ? (
-          <li className="text-center text-gray-500 py-10 text-xs italic">No conversations yet</li>
+          <li className="text-center text-gray-500 py-10 text-xs italic">
+            No conversations yet
+          </li>
         ) : (
           chats.map((chat) => {
             const isActive = activeUserId === chat._id;
@@ -114,14 +112,14 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
                 key={chat._id}
                 onClick={() => onSelectUser(chat)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 group ${
-                  isActive 
-                    ? "bg-blue-600/20 border border-blue-500/30" 
+                  isActive
+                    ? "bg-blue-600/20 border border-blue-500/30"
                     : "hover:bg-white/[0.05] border border-transparent"
                 }`}
               >
                 <div className="relative shrink-0">
                   <img
-                    src={chat.dp || `https://i.pravatar.cc/150?u=${chat.id}`}
+                    src={chat.dp || `https://i.pravatar.cc/150?u=${chat._id}`}
                     className="w-12 h-12 rounded-2xl object-cover border border-white/5"
                     alt=""
                   />
@@ -132,10 +130,14 @@ const Sider = ({ onSelectUser, activeUserId, refreshTrigger }) => {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-0.5">
-                    <p className={`text-sm font-bold truncate ${isActive ? "text-white" : "text-gray-200"}`}>
+                    <p
+                      className={`text-sm font-bold truncate ${
+                        isActive ? "text-white" : "text-gray-200"
+                      }`}
+                    >
                       {chat.name}
                     </p>
-                    <span className="text-[10px] text-gray-500 font-medium">
+                    <span className="text-[10px] text-gray-500 font-medium shrink-0 ml-2">
                       {new Date(chat.updatedAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",

@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Phone, Bell, Shield, Mail, Edit3, Save, Camera, ArrowLeft, MessageSquare } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  Phone,
+  Bell,
+  Shield,
+  Mail,
+  Edit3,
+  Save,
+  Camera,
+  ArrowLeft,
+  MessageSquare,
+} from "lucide-react";
 
-const server_url = 'http://localhost:3003' ||   'https://chat-app-l5l5.vercel.app'
-
+const server_url = import.meta.env.VITE_BACKEND_URL;
 
 const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
-  const { id } = useParams(); 
+  const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [user, setUser] = useState(propUser);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -25,12 +34,12 @@ const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const url = id 
-        ? `${server_url}/api/user/profile/${id}` 
+      const url = id
+        ? `${server_url}/api/user/profile/${id}`
         : `${server_url}/api/user/profile`;
 
       const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       setUser(res.data.user);
@@ -47,7 +56,7 @@ const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.put(`${server_url}/api/user/update`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setUser(res.data.user);
       setIsEditing(false);
@@ -56,30 +65,59 @@ const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
     }
   };
 
-  const startConversation = () => {
-    if (onSelectChat) {
+  const startConversation = async () => {
+    if (!onSelectChat) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.post(
+        `${server_url}/api/chat`,
+        { userId: user._id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const chatData = res.data;
+      const currentUser = JSON.parse(localStorage.getItem("user"));
+      const myId = currentUser?._id || currentUser?.id;
+      const otherUser = chatData.users.find(
+        (u) => u._id.toString() !== myId.toString()
+      );
+
       onSelectChat({
-        id: user._id,
-        name: user.name,
-        dp: user.dp,
-        status: user.status
+        id: chatData._id,                          // real chat id, not user id
+        name: otherUser?.name || user.name,
+        dp: otherUser?.dp || user.dp || "https://i.pravatar.cc/150",
+        avatar: otherUser?.dp || user.dp || "https://i.pravatar.cc/150",
+        status: otherUser?.status || user.status || "Online",
       });
+
       navigate("/chat");
+    } catch (err) {
+      console.error("Failed to start conversation", err);
     }
   };
 
-  if (loading) return <div className="h-full flex items-center justify-center text-gray-500 font-medium">Loading profile...</div>;
-  if (!user) return <div className="h-full flex items-center justify-center text-red-400">User not found</div>;
+  if (loading)
+    return (
+      <div className="h-full flex items-center justify-center text-gray-500 font-medium">
+        Loading profile...
+      </div>
+    );
+  if (!user)
+    return (
+      <div className="h-full flex items-center justify-center text-red-400">
+        User not found
+      </div>
+    );
 
   return (
     <div className="h-full overflow-y-auto pt-10 px-4 pb-20">
-      <motion.div 
+      <motion.div
         layout
         className="relative w-full max-w-md mx-auto bg-[#111827] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl"
       >
         <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-600 relative shadow-inner">
           {isPage && (
-            <button 
+            <button
               onClick={() => window.history.back()}
               className="absolute top-4 left-4 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white transition-all backdrop-blur-md"
             >
@@ -88,8 +126,8 @@ const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
           )}
 
           {isOwnProfile && (
-            <button 
-              onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+            <button
+              onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
               className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-all shadow-lg backdrop-blur-md"
             >
               {isEditing ? <Save size={18} /> : <Edit3 size={18} />}
@@ -101,7 +139,9 @@ const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
           <div className="relative group">
             <img
               src={formData.dp || "https://i.pravatar.cc/150"}
-              className={`w-32 h-32 rounded-[2.5rem] border-8 border-[#111827] object-cover shadow-2xl transition-all ${isEditing ? 'opacity-50 blur-[2px]' : ''}`}
+              className={`w-32 h-32 rounded-[2.5rem] border-8 border-[#111827] object-cover shadow-2xl transition-all ${
+                isEditing ? "opacity-50 blur-[2px]" : ""
+              }`}
               alt={user.name}
             />
             {isEditing && (
@@ -114,41 +154,62 @@ const UserProfile = ({ isPage = false, user: propUser, onSelectChat }) => {
 
           {isEditing ? (
             <div className="mt-4 w-full px-4 space-y-2">
-              <input 
+              <input
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-center text-white font-bold outline-none focus:border-blue-500/50"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
               />
-              <input 
+              <input
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-center text-blue-400 text-xs outline-none focus:border-blue-500/50"
                 value={formData.status}
-                onChange={(e) => setFormData({...formData, status: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, status: e.target.value })
+                }
               />
             </div>
           ) : (
             <>
-              <h2 className="mt-4 text-2xl font-black text-white tracking-tight">{user.name}</h2>
-              <p className="text-blue-400 text-xs font-bold uppercase tracking-widest">{user.status}</p>
+              <h2 className="mt-4 text-2xl font-black text-white tracking-tight">
+                {user.name}
+              </h2>
+              <p className="text-blue-400 text-xs font-bold uppercase tracking-widest">
+                {user.status}
+              </p>
             </>
           )}
 
           <div className="w-full mt-8 space-y-1 text-left">
-            <EditableRow 
-                icon={<Mail size={16}/>} label="Email" value={formData.email} 
-                isEditing={isEditing} field="email" setFormData={setFormData} formData={formData}
+            <EditableRow
+              icon={<Mail size={16} />}
+              label="Email"
+              value={formData.email}
+              isEditing={isEditing}
+              field="email"
+              setFormData={setFormData}
+              formData={formData}
             />
-            <InfoRow icon={<Phone size={16}/>} label="Phone" value={user.phone_number} />
-            <InfoRow icon={<Shield size={16}/>} label="Privacy" value="End-to-End Encrypted" />
-            
+            <InfoRow
+              icon={<Phone size={16} />}
+              label="Phone"
+              value={user.phone_number}
+            />
+            <InfoRow
+              icon={<Shield size={16} />}
+              label="Privacy"
+              value="End-to-End Encrypted"
+            />
+
             {!isOwnProfile && (
-               <motion.button 
-                 whileTap={{ scale: 0.95 }}
-                 onClick={startConversation}
-                 className="w-full mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
-               >
-                  <MessageSquare size={18} />
-                  Message {user.name.split(' ')[0]}
-               </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={startConversation}
+                className="w-full mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+              >
+                <MessageSquare size={18} />
+                Message {user.name.split(" ")[0]}
+              </motion.button>
             )}
           </div>
         </div>
@@ -164,10 +225,10 @@ const EditableRow = ({ icon, label, value, isEditing, field, setFormData, formDa
       <span className="text-sm font-medium">{label}</span>
     </div>
     {isEditing ? (
-      <input 
+      <input
         className="bg-blue-500/10 border-none outline-none text-right text-sm text-white rounded px-2 w-1/2 py-1"
         value={value}
-        onChange={(e) => setFormData({...formData, [field]: e.target.value})}
+        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
       />
     ) : (
       <span className="text-sm font-bold text-gray-500">{value || "None"}</span>
@@ -176,13 +237,13 @@ const EditableRow = ({ icon, label, value, isEditing, field, setFormData, formDa
 );
 
 const InfoRow = ({ icon, label, value }) => (
-    <div className="flex items-center justify-between p-3 text-gray-400">
-      <div className="flex items-center gap-3">
-        <div className="text-gray-500">{icon}</div>
-        <span className="text-sm font-medium">{label}</span>
-      </div>
-      <span className="text-sm font-bold text-gray-500">{value}</span>
+  <div className="flex items-center justify-between p-3 text-gray-400">
+    <div className="flex items-center gap-3">
+      <div className="text-gray-500">{icon}</div>
+      <span className="text-sm font-medium">{label}</span>
     </div>
+    <span className="text-sm font-bold text-gray-500">{value}</span>
+  </div>
 );
 
 export default UserProfile;

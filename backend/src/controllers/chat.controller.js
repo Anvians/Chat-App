@@ -1,13 +1,11 @@
 import mongoose from 'mongoose';
 import Chat from '../models/chats.model.js';
 import Message from '../models/message.model.js';
-import Room from '../models/rooms.model.js';
-
-
 
 export const accessChat = async (req, res) => {
-  const { userId } = req.body; 
-  const myId = req.user.id;   
+  const { userId } = req.body;
+  const myId = req.user.id;
+
   if (!userId) return res.status(400).json({ message: "UserId not sent" });
 
   try {
@@ -18,8 +16,8 @@ export const accessChat = async (req, res) => {
       isGroupChat: false,
       users: { $all: [myObjectId, targetObjectId] }
     })
-    .populate("users", "name dp username")
-    .populate("lastMessage");
+      .populate("users", "name dp username status")
+      .populate("lastMessage");
 
     if (chat) {
       return res.status(200).json(chat);
@@ -28,20 +26,20 @@ export const accessChat = async (req, res) => {
     const newChat = await Chat.create({
       chatName: "sender",
       isGroupChat: false,
-      users: [myObjectId, targetObjectId]
+      users: [myObjectId, targetObjectId],
     });
 
-    const fullChat = await Chat.findById(newChat._id).populate("users", "name dp username");
-    res.status(201).json(fullChat);
+    const fullChat = await Chat.findById(newChat._id)
+      .populate("users", "name dp username status");
 
+    res.status(201).json(fullChat);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-
 export const createGroupChat = async (req, res) => {
-  const { name, userIds } = req.body; 
+  const { name, userIds } = req.body;
   const adminId = req.user.id;
 
   if (!name || !userIds || userIds.length < 1) {
@@ -55,7 +53,7 @@ export const createGroupChat = async (req, res) => {
       chatName: name,
       users,
       isGroupChat: true,
-      groupAdmin: adminId
+      groupAdmin: adminId,
     });
 
     const fullGroupChat = await Chat.findById(groupChat._id)
@@ -63,12 +61,10 @@ export const createGroupChat = async (req, res) => {
       .populate("groupAdmin", "name dp username");
 
     res.status(201).json(fullGroupChat);
-
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
 
 export const sendMessage = async (req, res) => {
   const { content, chatId, messageType = "text", mediaUrl } = req.body;
@@ -84,21 +80,28 @@ export const sendMessage = async (req, res) => {
       chat: chatId,
       content,
       messageType,
-      mediaUrl
+      mediaUrl,
     });
 
-    message = await message.populate("sender", "name dp username")
+    // Chaining .populate() on a Mongoose document instance is unreliable
+    message = await Message.findById(message._id)
+      .populate("sender", "name dp username")
       .populate("chat");
 
     await Chat.findByIdAndUpdate(chatId, { lastMessage: message._id });
 
-    res.status(201).json(message);
+    // Broadcast the saved message to the chat room via socket
+    // This is the single source of truth — socket send_message no longer saves 1-to-1 msgs
+    const io = req.app.get("io");
+    if (io) {
+      io.to(chatId).emit("recv_msg", message);
+    }
 
+    res.status(201).json(message);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
 
 export const fetchMessages = async (req, res) => {
   const { chatId } = req.params;
@@ -116,7 +119,6 @@ export const fetchMessages = async (req, res) => {
   }
 };
 
-
 export const markMessagesRead = async (req, res) => {
   const { chatId } = req.body;
   const userId = req.user.id;
@@ -133,7 +135,6 @@ export const markMessagesRead = async (req, res) => {
   }
 };
 
-
 export const leaveGroupChat = async (req, res) => {
   const { chatId } = req.params;
   const userId = req.user.id;
@@ -149,16 +150,15 @@ export const leaveGroupChat = async (req, res) => {
       return res.status(400).json({ message: "Cannot leave a 1-to-1 chat" });
     }
 
-    chat.users = chat.users.filter(user => user.toString() !== userId);
+    chat.users = chat.users.filter((user) => user.toString() !== userId);
 
     if (chat.groupAdmin.toString() === userId && chat.users.length > 0) {
-      chat.groupAdmin = chat.users[0]; 
+      chat.groupAdmin = chat.users[0];
     }
 
     await chat.save();
 
     res.status(200).json({ message: "You left the group chat successfully", chat });
-
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }

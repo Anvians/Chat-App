@@ -1,10 +1,9 @@
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'secret123';
+import { JWT_SECRET } from '../config/env.js';
 
 export const auth = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Unauthorized, token missing' });
   }
@@ -16,8 +15,7 @@ export const auth = (req, res, next) => {
     req.user = { id: decoded.id };
     next();
   } catch (err) {
- 
-    console.error("JWT ERROR:", err.message); 
+    console.error("JWT ERROR:", err.message);
     return res.status(401).json({ message: 'Invalid token' });
   }
 };

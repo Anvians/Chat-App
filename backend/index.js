@@ -13,12 +13,10 @@ import roomRouter from "./src/routes/room.route.js";
 import chatRouter from "./src/routes/chat.route.js";
 import connectDB from "./src/connections/mongo_connection.js";
 
-import Message from "./src/models/message.model.js";
 import RoomMessage from "./src/models/room_chat.model.js";
 import Chat from "./src/models/chats.model.js";
 
 import { JWT_SECRET } from "./src/config/env.js";
-
 
 const app = express();
 const server = http.createServer(app);
@@ -29,8 +27,7 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 const FRONTEND_URL =
   NODE_ENV === "production"
     ? ["https://chat-app-coral-psi.vercel.app", "https://chat-app-l5l5.vercel.app"]
-    : "http://localhost:5173"; // change if needed
-
+    : "http://localhost:5173";
 
 app.use(
   cors({
@@ -41,9 +38,7 @@ app.use(
 
 app.use(express.json());
 
-
 connectDB();
-
 
 const io = new Server(server, {
   cors: {
@@ -70,6 +65,8 @@ io.use((socket, next) => {
   }
 });
 
+// Attach io to app so controllers can broadcast via req.app.get("io")
+app.set("io", io);
 
 const onlineUsers = new Map(); // userId => Set(socketId)
 
@@ -86,70 +83,45 @@ io.on("connection", (socket) => {
   // JOIN ROOM
   socket.on("join_room", (roomId) => {
     socket.join(roomId);
-    console.log(` User ${userId} joined room ${roomId}`);
+    console.log(`User ${userId} joined room ${roomId}`);
   });
 
-  // TYPING
+  // can match it against selectedChat.id to scope the indicator correctly
   socket.on("typing", (roomId) => {
-    socket.to(roomId).emit("typing", { userId });
+    socket.to(roomId).emit("typing", roomId);
   });
 
   socket.on("stop_typing", (roomId) => {
-    socket.to(roomId).emit("stop_typing", { userId });
+    socket.to(roomId).emit("stop_typing", roomId);
   });
 
+  // Socket only handles GROUP (room) messages.
+  // 1-to-1 messages are fully handled by POST /api/chat/message (REST):
+  // it saves to DB and broadcasts recv_msg via io.to(chatId).emit().
   socket.on("send_message", async (data) => {
     const { message, to, isGroup = false, messageType = "text" } = data;
 
+    if (!isGroup) {
+      // Nothing to do — REST endpoint handles save + broadcast for 1-to-1
+      return;
+    }
+
+    // Group/room messages: save via socket (no REST endpoint for rooms)
     try {
-      let newMessage;
+      const newMessage = await RoomMessage.create({
+        room: to,
+        sender: userId,
+        content: message,
+        messageType,
+      });
 
-      if (isGroup) {
-        newMessage = await RoomMessage.create({
-          room: to,
-          sender: userId,
-          content: message,
-          messageType,
-        });
-      } else {
-        newMessage = await Message.create({
-          sender: userId,
-          chat: to,
-          content: message,
-          messageType,
-        });
-
-        await Chat.findByIdAndUpdate(to, {
-          lastMessage: newMessage._id,
-        });
-      }
-
-      const populatedMsg = await newMessage.populate(
-        "sender",
-        "name dp"
-      );
-
+      const populatedMsg = await newMessage.populate("sender", "name dp");
       io.to(to).emit("recv_msg", populatedMsg);
-
-      if (!isGroup) {
-        const chatDoc = await Chat.findById(to);
-        if (chatDoc) {
-          chatDoc.users.forEach((uId) => {
-            const sockets = onlineUsers.get(uId.toString());
-            if (sockets) {
-              sockets.forEach((sid) => {
-                io.to(sid).emit("new_message", populatedMsg);
-              });
-            }
-          });
-        }
-      }
     } catch (err) {
-      console.error(" Socket Message Error:", err);
+      console.error("Socket Message Error:", err);
       socket.emit("error", { message: "Failed to send message" });
     }
   });
-
 
   socket.on("disconnect", () => {
     const userSockets = onlineUsers.get(userId);
@@ -159,18 +131,16 @@ io.on("connection", (socket) => {
         onlineUsers.delete(userId);
       }
     }
-    console.log(` User disconnected: ${userId}`);
+    console.log(`User disconnected: ${userId}`);
   });
 });
-
 
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/rooms", roomRouter);
 app.use("/api/chat", chatRouter);
 
-
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌍 Frontend allowed: ${FRONTEND_URL}`);
+  console.log(` Server running on port ${PORT}`);
+  console.log(` Frontend allowed: ${FRONTEND_URL}`);
 });

@@ -1,7 +1,5 @@
-import mongoose from 'mongoose';
-import Chat from '../models/chats.model.js'
-import Room from '../models/rooms.model.js'
-
+import Chat from '../models/chats.model.js';
+import Room from '../models/rooms.model.js';
 
 export const getMySidebarChats = async (req, res) => {
   try {
@@ -10,40 +8,38 @@ export const getMySidebarChats = async (req, res) => {
     const chats = await Chat.find({
       users: { $elemMatch: { $eq: userId } }
     })
-      .populate("users", "id name username dp")
+      .populate("users", "_id name username dp status")
       .populate("lastMessage")
       .sort({ updatedAt: -1 });
 
     const formattedChats = chats.map((chat) => {
       const otherUser = chat.isGroupChat
         ? null
-        : chat.users.find(
-            (u) => u._id.toString() !== userId
-          );
+        : chat.users.find((u) => u._id.toString() !== userId);
 
       return {
-        id: chat._id,
+        _id: chat._id,
         isGroup: chat.isGroupChat,
         name: chat.isGroupChat ? chat.chatName : otherUser?.name,
-        dp: chat.isGroupChat ? "" : otherUser?.dp,
+        dp: chat.isGroupChat ? "" : otherUser?.dp || "",
+        status: chat.isGroupChat ? "" : otherUser?.status || "",
         lastMessage: chat.lastMessage?.content || "",
-        updatedAt: chat.updatedAt
+        updatedAt: chat.updatedAt,
       };
     });
 
-    const rooms = await Room.find({
-      members: userId
-    })
+    const rooms = await Room.find({ members: userId })
       .populate("admin", "name")
       .sort({ updatedAt: -1 });
 
     const formattedRooms = rooms.map((room) => ({
-      id: room._id,
+      _id: room._id,
       isGroup: true,
       name: room.name,
-      dp: "",
+      dp: room.room_icon || "",
+      status: "",
       lastMessage: "",
-      updatedAt: room.updatedAt
+      updatedAt: room.updatedAt,
     }));
 
     const sidebar = [...formattedChats, ...formattedRooms].sort(
@@ -52,6 +48,7 @@ export const getMySidebarChats = async (req, res) => {
 
     res.json(sidebar);
   } catch (err) {
+    console.error("Sidebar error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

@@ -1,10 +1,10 @@
-import mongoose from 'mongoose';
 import User from '../models/user.model.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv'
+import dotenv from 'dotenv';
 import { JWT_SECRET } from '../config/env.js';
 
+dotenv.config();
 
 export const registerUser = async (req, res) => {
   const { name, phone_number, password } = req.body;
@@ -32,9 +32,11 @@ export const registerUser = async (req, res) => {
     res.status(201).json({
       message: 'User registered successfully',
       user: {
-        id: newUser._id,
+        _id: newUser._id,
         name: newUser.name,
         phone_number: newUser.phone_number,
+        dp: newUser.dp || "",
+        status: newUser.status || "",
       },
       token,
     });
@@ -57,18 +59,17 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    if (!process.env.JWT_SECRET && JWT_SECRET === 'secret123') {
-       console.warn("Warning: Using default secret123");
-    }
-
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
+    // localStorage.getItem("user") has the full shape the frontend needs
     return res.status(200).json({
       message: 'Login successful',
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         phone_number: user.phone_number,
+        dp: user.dp || "",
+        status: user.status || "",
       },
       token,
     });
@@ -77,4 +78,3 @@ export const loginUser = async (req, res) => {
     return res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
-
