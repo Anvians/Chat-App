@@ -38,7 +38,7 @@ app.use(
 
 app.use(express.json());
 
-connectDB();
+// connectDB();
 
 const io = new Server(server, {
   cors: {
