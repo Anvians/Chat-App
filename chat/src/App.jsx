@@ -8,6 +8,7 @@ import UserProfile from "./components/UserProfile";
 import Room from "./components/Rooms";
 import Navbar from "./components/Navbar";
 import { MessageSquareDashed } from "lucide-react";
+import { ProtectedRoute } from "./components/protectedRoute.jsx";
 
 const App = () => {
   const [activeChat, setActiveChat] = useState(() => {
@@ -108,22 +109,35 @@ const App = () => {
 
                 <Route
                   path="/profile"
-                  element={<UserProfile isPage={true} onSelectChat={handleSelectChat} />}
+                  element={
+                  <ProtectedRoute>
+                    <UserProfile isPage={true} onSelectChat={handleSelectChat} />
+                  </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="/profile/:id"
-                  element={<UserProfile isPage={true} onSelectChat={handleSelectChat} />}
+                  element={
+                  <ProtectedRoute>
+                    <UserProfile isPage={true} onSelectChat={handleSelectChat} />
+                  </ProtectedRoute>
+                  }
                 />
 
                 <Route path="/chat" element={
                   activeChat ? (
+                    <ProtectedRoute>
+
                     <ChatScreen
                       selectedChat={activeChat}
                       token={localStorage.getItem("token")}
                       userId={JSON.parse(localStorage.getItem("user"))?._id}
                       onBack={() => navigate(-1)}
-                    />
+                      />
+                      </ProtectedRoute>
                   ) : (
+                    <ProtectedRoute>
+
                     <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                       <div className="p-6 bg-blue-500/10 rounded-full">
                         <MessageSquareDashed className="w-12 h-12 text-blue-400 opacity-50" />
@@ -133,6 +147,7 @@ const App = () => {
                         Select a friend from the sidebar to start a secure conversation.
                       </p>
                     </div>
+                    </ProtectedRoute>
                   )
                 } />
 
